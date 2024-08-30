@@ -1,0 +1,4 @@
+variables:
+  stage_terraform_script_path: "$(Build.SourcesDirectory)/Pipelinekit/scripts/terraform/script_stage_tfmodules.ps1"
+  stage_terraform_script_arguments: "-tf_templates $(tf_templates) -build_sources_directory $(Build.SourcesDirectory) -artifact_staging_directory $(Build.ArtifactStagingDirectory)"
+  infrastructure_path: "$(System.DefaultWorkingDirectory)/TerraformConfigurations/infrastructure"

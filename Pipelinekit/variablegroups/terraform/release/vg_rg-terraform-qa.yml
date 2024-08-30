@@ -1,0 +1,4 @@
+variables:
+  tfbackend_rg: "rg-terraform-qa"
+  tfbackend_StorageAccount: "sttctfqacus001"
+  tf_version: 1.7.5

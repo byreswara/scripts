@@ -1,0 +1,102 @@
+parameters:
+- name: service_connection
+  type: string
+- name: tf_version
+  type: string
+  default: $(tf_version)
+- name: artifact_path
+  type: string
+  default: "$(artifact_path)"
+- name: tfbackend_rg
+  type: string
+  default: "$(tfbackend_rg)"
+- name: tfbackend_StorageAccount
+  type: string
+  default: "$(tfbackend_StorageAccount)"
+- name: tfbackend_Container
+  type: string
+  default: "$(tfbackend_Container)"
+- name: tfbackend_StateFile
+  type: string
+  default: "$(artifact)"
+- name: tf_CommandOptions
+  type: string
+  default: $(tf_CommandOptions)
+- name: tf_apply
+  type: boolean
+  default: $(tf_apply)
+- name: tf_destroy
+  type: boolean
+  default: $(tf_destroy)
+- name: tf_unlock
+  type: boolean
+  default: $(tf_unlock)
+- name: tf_unlock_id
+  type: string
+  default: "$(tf_unlock_id)"
+
+steps:
+- pwsh: |
+    write-host "command options: ${{ parameters.tf_CommandOptions }}"
+    get-childitem "$(Pipeline.Workspace)/build_artifact/" -Recurse
+  displayName: 'List all files in build_artifact'
+
+- task: TerraformInstaller@1
+  displayName: 'Install Terraform ${{ parameters.tf_version }}'
+  inputs:
+    terraformVersion: ${{ parameters.tf_version }}
+
+- task: TerraformTaskV4@4
+  displayName: 'Terraform : init'
+  inputs:
+    workingDirectory: ${{ parameters.artifact_path }}
+    commandOptions: '-input="false" -reconfigure'
+    backendServiceArm: ${{ parameters.service_connection }}
+    backendAzureRmResourceGroupName: ${{ parameters.tfbackend_rg }}
+    backendAzureRmStorageAccountName: ${{ parameters.tfbackend_StorageAccount }}
+    backendAzureRmContainerName: ${{ parameters.tfbackend_Container }}
+    backendAzureRmKey: ${{ parameters.tfbackend_StateFile }}
+
+- task: TerraformTaskV4@4
+  displayName: 'Terraform : unlock'
+  condition: ${{ eq(parameters.tf_unlock, true) }}
+  inputs:
+    command: 'custom'
+    workingDirectory: ${{ parameters.artifact_path }}
+    commandOptions: 'force-unlock -force ${{ parameters.tf_unlock_id }}'
+    environmentServiceNameAzureRM: ${{ parameters.service_connection }}
+
+- task: TerraformTaskV4@4
+  displayName: 'Terraform : plan'
+  inputs:
+    command: plan
+    workingDirectory: ${{ parameters.artifact_path }}
+    commandOptions: '-input="false" -out=./tfplan -refresh=true ${{ parameters.tf_CommandOptions }}'
+    environmentServiceNameAzureRM: ${{ parameters.service_connection }}
+
+- task: TerraformTaskV4@4
+  displayName: 'Terraform : apply'
+  condition: ${{ and(eq(parameters.tf_apply, true), eq(parameters.tf_destroy, false)) }}
+  inputs:
+    command: apply
+    workingDirectory: ${{ parameters.artifact_path }}
+    commandOptions: '-refresh=true -auto-approve ./tfplan'
+    environmentServiceNameAzureRM: ${{ parameters.service_connection }}
+
+- task: TerraformTaskV4@4
+  displayName: 'Terraform : destroy'
+  condition: ${{ and(eq(parameters.tf_apply, false), eq(parameters.tf_destroy, true)) }}
+  inputs:
+    command: destroy
+    workingDirectory: ${{ parameters.artifact_path }}
+    commandOptions: '-refresh=true -auto-approve ${{ parameters.tf_CommandOptions }}'
+    environmentServiceNameAzureRM: ${{ parameters.service_connection }}
+
+- task: TerraformTaskV4@4
+  name: terraformOutput
+  displayName: 'Terraform : output'
+  inputs:
+    command: output
+    provider: azurerm
+    workingDirectory: ${{ parameters.artifact_path }}
+    environmentServiceNameAzureRM: ${{ parameters.service_connection }}

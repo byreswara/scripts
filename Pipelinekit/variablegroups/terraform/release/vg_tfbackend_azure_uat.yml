@@ -1,0 +1,3 @@
+variables:
+  tfbackend_rg: "rg-terraform-uat"
+  tfbackend_StorageAccount: "sttctfuatcus001"

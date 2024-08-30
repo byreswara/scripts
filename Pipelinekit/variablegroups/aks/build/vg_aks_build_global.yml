@@ -1,0 +1,9 @@
+variables:
+  tag: '$(GitVersion.MajorMinorPatch)'# Image Tag for TAR Artifact
+  devtag: '$(GitVersion.MajorMinorPatch)-$(GitVersion.ShortSHA)'# Image Tag for Dev ACR
+  DOCKER_BUILDKIT: 1
+  baseline_containerRegistry: 'mercalisbaseline.azurecr.io'
+  pr_containerRegistry: 'mercalispr.azurecr.io'
+  gitversionSpec: '5.11.x'
+  dotnetVersion: '6.0.x'
+  agentpool: 'DO-NOT-USE-DockerLinux'

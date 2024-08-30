@@ -1,0 +1,92 @@
+parameters:
+- name: root_module_path
+  type: string
+  default: $(root_module_path) # pulled from variable library
+
+- name: root_module
+  type: string
+  default: $(root_module) # pulled from variable library
+
+- name: stage_terraform_script_path
+  type: string
+  default: $(stage_terraform_script_path) # pulled from variable library
+
+- name: stage_terraform_script_arguments
+  type: string
+  default: $(stage_terraform_script_arguments) # pulled from variable library
+
+steps:
+- pwsh: |
+    get-childitem "$(Build.SourcesDirectory)"
+
+- task: powershell@2
+  displayName: "Stage Terraform Modules"
+  inputs:
+    pwsh: true
+    targetType: 'filepath'
+    filePath: ${{ parameters.stage_terraform_script_path }}
+    arguments: ${{ parameters.stage_terraform_script_arguments }}
+
+- task: CopyFiles@2
+  displayName: "Stage Root Module"
+  inputs:
+    SourceFolder: "${{ parameters.root_module_path }}"
+    Contents: "**"
+    TargetFolder: "$(Build.ArtifactStagingDirectory)"
+
+- task: Bash@3
+  displayName: 'Install Terraform'
+  inputs:
+    targetType: 'inline'
+    script: |
+      curl -o terraform.zip https://releases.hashicorp.com/terraform/1.4.2/terraform_1.4.2_linux_amd64.zip
+      unzip terraform.zip
+      sudo mv terraform /usr/local/bin/
+      terraform --version
+ 
+# Install tflint
+- task: Bash@3
+  displayName: 'Install tflint'
+  inputs:
+    targetType: 'inline'
+    script: |
+      curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+
+# Format Terraform files
+- task: Bash@3
+  displayName: 'Terraform Format'
+  inputs:
+    targetType: 'inline'
+    script: |
+      terraform fmt -recursive "$(Build.ArtifactStagingDirectory)"
+
+# Validate Terraform files
+- task: Bash@3
+  displayName: 'Terraform Validate'
+  inputs:
+    targetType: 'inline'
+    script: |
+      export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      cd $(Build.ArtifactStagingDirectory)
+      terraform init -backend=false
+      terraform validate
+
+# Lint Terraform files
+- task: Bash@3
+  displayName: 'Terraform Lint'
+  inputs:
+    targetType: 'inline'
+    script: |
+      tflint --chdir $(Build.ArtifactStagingDirectory)
+- task: Bash@3
+  displayName: 'deleting .teraform folder and terraform lock file'
+  inputs:
+    targetType: 'inline'
+    script: |
+      rm -r $(Build.ArtifactStagingDirectory)/.terraform*
+- task: PublishBuildArtifacts@1
+  displayName: "Publish Artifact"
+  inputs:
+    PathtoPublish: "$(Build.ArtifactStagingDirectory)"
+    ArtifactName: ${{ parameters.root_module }}
+

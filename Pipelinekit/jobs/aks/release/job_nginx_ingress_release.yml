@@ -1,0 +1,48 @@
+parameters:
+- name: ado_environment
+  type: string
+- name: service_connection
+  type: string
+- name: manifests_directory
+  type: string
+  default: $(manifests_directory)
+- name: aks_resource_group
+  type: string
+  default: $(aks_resource_group)
+- name: aks_cluster_name
+  type: string
+  default: $(aks_cluster_name)
+- name: namespace
+  type: string
+  default: $(namespace)
+- name: helm_release
+  type: string
+  default: $(namespace)
+- name: nginx_ingress_preflight_script_path
+  type: string
+  default: $(nginx_ingress_preflight_script_path)
+- name: nginx_ingress_preflight_script_arguments
+  type: string
+  default: $(nginx_ingress_preflight_script_arguments)
+
+jobs:
+- deployment: ingress_controller_deployment
+  displayName: "Deploy Nginx Ingress Controller"
+  environment: ${{ parameters.ado_environment }}
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+        - checkout: pipelinekit
+        - download: 'build_artifact'
+          displayName: 'Download Terraform artifact_path'
+        - template: ../../../taskgroups/aks/release/taskgroup_nginx_ingress_release.yml
+          parameters:
+            service_connection: ${{ parameters.service_connection }}
+            manifests_directory: ${{ parameters.manifests_directory }}
+            aks_resource_group: ${{ parameters.aks_resource_group }}
+            aks_cluster_name: ${{ parameters.aks_cluster_name }}
+            namespace: ${{ parameters.namespace }}
+            helm_release: ${{ parameters.helm_release }}
+            nginx_ingress_preflight_script_path: ${{ parameters.nginx_ingress_preflight_script_path }}
+            nginx_ingress_preflight_script_arguments: ${{ parameters.nginx_ingress_preflight_script_arguments }}

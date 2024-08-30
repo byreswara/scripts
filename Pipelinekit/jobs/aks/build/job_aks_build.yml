@@ -1,0 +1,67 @@
+# Most of the parameters are passed in from the vg_aks_build_global.yml file
+parameters:
+- name: agentpool
+  type: string
+  default: $(agentpool)
+- name: appsettingsPath
+  type: string
+  default: '$(appsettingsPath)'
+- name: branchfilter
+  type: string
+  default: '$(branchfilter)'
+- name: baseline_containerRegistry
+  type: string
+  default: $(baseline_containerRegistry)
+- name: pr_containerRegistry
+  type: string
+  default: $(pr_containerRegistry)
+- name: devtag
+  type: string
+  default: '$(devtag)'
+- name: dockerfilePath
+  type: string
+  default: '$(dockerfilePath)'
+- name: mercalisprServiceConnection
+  type: string
+- name: mercalisbaselineServiceConnection
+  type: string
+- name: dotnetVersion
+  type: string
+  default: $(dotnetVersion)
+- name: gitversionConfigPath
+  type: string
+  default: '$(gitversionConfigPath)'
+- name: gitversionSpec
+  type: string
+  default: $(gitversionSpec)
+- name: imageRepository
+  type: string
+  default: '$(imageRepository)'
+- name: tag
+  type: string
+  default: '$(tag)'
+
+jobs:
+- job: build_publish_docker
+  displayName: "Build Docker Image"
+  pool: ${{ parameters.agentpool }}
+  steps:
+  - checkout: self
+    path: s # Set the path to the root of the repository to /s (solutions directory on agent) - This allows gitversion to function properly
+  - checkout: pipelinekit
+    path: a # Set the path to the root of pipelinekit to /a (artifacts directory on agent) - This keeps the pipelinekit repository separate from the solution repository
+  - template: ../../../taskgroups/aks/build/taskgroup_aks_build.yml
+    parameters:
+      appsettingsPath: ${{ parameters.appsettingsPath }}
+      branchfilter: ${{ parameters.branchfilter }}
+      baseline_containerRegistry: ${{ parameters.baseline_containerRegistry }}
+      pr_containerRegistry: ${{ parameters.pr_containerRegistry }}
+      devtag: ${{ parameters.devtag }}
+      dockerfilePath: ${{ parameters.dockerfilePath }}
+      mercalisprServiceConnection: ${{ parameters.mercalisprServiceConnection }}
+      mercalisbaselineServiceConnection: ${{ parameters.mercalisbaselineServiceConnection }}
+      dotnetVersion: ${{ parameters.dotnetVersion }}
+      gitversionConfigPath: ${{ parameters.gitversionConfigPath }}
+      gitversionSpec: ${{ parameters.gitversionSpec }}
+      imageRepository: ${{ parameters.imageRepository }}
+      tag: ${{ parameters.tag }}

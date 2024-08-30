@@ -1,0 +1,5 @@
+variables:
+  artifact_path: "$(Pipeline.Workspace)/build_artifact/$(artifact)"
+  tf_version: 1.7.5
+  tf_CommandOptions: -var-file=$(artifact_path)/vars/$(tfvars_file) -var="deployer=$(Build.QueuedBy)" -var="ado_Project=$(System.TeamProject)" -var="ado_Repository=$(Build.Repository.Name)" -var="ado_Branch=$(Build.SourceBranchName)"
+  tfbackend_StateFile: "$(artifact)"

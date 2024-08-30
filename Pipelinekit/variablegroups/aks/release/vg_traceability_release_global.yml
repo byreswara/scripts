@@ -1,0 +1,10 @@
+variables:
+  # Traceability Variables:
+  # Note: The project name for builduri and releaseuri is hard-coded, until we are able to dynamically generate project name for html links.
+  buildid: $(resources.pipeline.artifact.runID)
+  buildsourcebranch: $(resources.pipeline.artifact.sourceBranch)
+  buildsourceversion: $(resources.pipeline.artifact.sourceCommit)
+  builduri: "https://dev.azure.com/TrialCardInc/Enterprise%20Services/_build/results?buildId=$(resources.pipeline.artifact.runID)"
+  imageBuildId: $(resources.pipeline.artifact.runID)
+  releaseid: $(Build.BuildID)
+  releaseuri: "https://dev.azure.com/TrialCardInc/Enterprise%20Services/_build/results?buildId=$(releaseid)"

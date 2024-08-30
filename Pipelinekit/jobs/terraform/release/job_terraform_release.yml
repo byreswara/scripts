@@ -1,0 +1,66 @@
+parameters:
+- name: ado_environment
+  type: string
+- name: service_connection
+  type: string
+- name: tf_version
+  type: string
+  default: $(tf_version)
+- name: artifact_path
+  type: string
+  default: "$(artifact_path)"
+- name: tfbackend_rg
+  type: string
+  default: "$(tfbackend_rg)"
+- name: tfbackend_StorageAccount
+  type: string
+  default: "$(tfbackend_StorageAccount)"
+- name: tfbackend_Container
+  type: string
+  default: "$(tfbackend_Container)"
+- name: tfbackend_StateFile
+  type: string
+  default: "$(artifact)"
+- name: tf_CommandOptions
+  type: string
+  default: $(tf_CommandOptions)
+- name: tf_apply
+  type: boolean
+  default: $(tf_apply)
+- name: tf_destroy
+  type: boolean
+  default: $(tf_destroy)
+- name: tf_unlock
+  type: boolean
+  default: $(tf_unlock)
+- name: tf_unlock_id
+  type: string
+  default: "$(tf_unlock_id)"
+
+jobs:
+- deployment: TerraformDeployment
+  workspace:
+    clean: all
+  displayName: "Deploy Terraform Module"
+  environment: ${{ parameters.ado_environment }}
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+        - checkout: pipelinekit
+        - download: 'build_artifact'
+          displayName: 'Download Terraform artifact_path'
+        - template: ../../../taskgroups/terraform/release/taskgroup_terraform_release.yml
+          parameters:
+            service_connection: ${{ parameters.service_connection }}
+            tf_version: ${{ parameters.tf_version }}
+            artifact_path: ${{ parameters.artifact_path }}
+            tfbackend_rg: ${{ parameters.tfbackend_rg }}
+            tfbackend_StorageAccount: ${{ parameters.tfbackend_StorageAccount }}
+            tfbackend_Container: ${{ parameters.tfbackend_Container }}
+            tfbackend_StateFile: ${{ parameters.tfbackend_StateFile }}
+            tf_CommandOptions: ${{ parameters.tf_CommandOptions }}
+            tf_apply: ${{ parameters.tf_apply }}
+            tf_destroy: ${{ parameters.tf_destroy }}
+            tf_unlock: ${{ parameters.tf_unlock }}
+            tf_unlock_id: ${{ parameters.tf_unlock_id }}

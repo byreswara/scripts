@@ -1,0 +1,28 @@
+parameters:
+- name: root_module
+  type: string
+  default: $(root_module)
+- name: root_module_path
+  type: string
+  default: $(root_module_path)
+- name: stage_terraform_script_path
+  type: string
+  default: $(stage_terraform_script_path)
+- name: stage_terraform_script_arguments
+  type: string
+  default: $(stage_terraform_script_arguments)
+
+jobs:
+- job: build_publish_terraform
+  displayName: "Build and Publish Terraform Modules"
+  steps:
+  - checkout: TerraformConfigurations
+  - checkout: TerraformTemplates
+  - checkout: pipelinekit
+  - template: ../../../taskgroups/terraform/build/taskgroup_terraform_build.yml
+    parameters:
+      root_module: ${{ parameters.root_module }}
+      root_module_path: ${{ parameters.root_module_path }}
+      stage_terraform_script_path: ${{ parameters.stage_terraform_script_path }}
+      stage_terraform_script_arguments: ${{ parameters.stage_terraform_script_arguments }}
+

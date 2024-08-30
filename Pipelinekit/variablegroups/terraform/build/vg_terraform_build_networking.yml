@@ -1,0 +1,2 @@
+variables:
+  root_modulepath: "$(Build.SourcesDirectory)/TerraformConfigurations/$(project_name)/networking/$(root_module)/module"

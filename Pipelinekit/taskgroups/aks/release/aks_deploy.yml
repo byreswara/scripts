@@ -1,0 +1,105 @@
+parameters:
+- name: aks_ClusterName
+  type: string
+  default: '$(aks.ClusterName)'
+  displayName: Cluster Name
+- name: aks_HelmChartPath
+  type: string
+  default: '$(Pipeline.Workspace)/stencil/stencil'
+  displayName: Helm Chart Path
+- name: aks_HelmReleaseLabel
+  type: string
+  default: '$(ServiceName)'
+  displayName: Helm Release Label
+- name: aks_ImageArtifact
+  type: string
+  default: '$(aks.ImageArtifact)'
+  displayName: Image Artifact
+- name: aks_Namespace
+  type: string
+  default: '$(ServiceName)'
+  displayName: Namespace
+- name: aks_ResourceGroup
+  type: string
+  default: '$(aks.ResourceGroup)'
+  displayName: Resource Group
+- name: aks_ServiceConnection
+  type: string
+  default: '$(aks.ResourceGroup)'
+  displayName: Service Connection
+- name: ClientConfigurationArguments
+  type: string
+  default: '-environmentName $(EnvironmentName) -project "Enterprise Services" -token $(System.AccessToken) -artifact $(aks.ImageArtifact)'
+  displayName: Client Configuration Arguments
+- name: ClientConfigurationScriptPath
+  type: string
+  default: '$(Pipeline.Workspace)/stencil/scripts/ClientConfigurator_v1.ps1'
+  displayName: Client Configuration Script Path
+- name: PreflightCheckArgs
+  type: string
+  default: '-ResourceGroup $(aks.ResourceGroup) -ClusterName $(aks.ClusterName) -namespace $(namespace) -serviceName $(ServiceName) -appsettingsPath "$(aks.ImageArtifact)/appsettings.json"'
+  displayName: Preflight Check Arguments
+- name: PreflightCheckPath
+  type: string
+  default: '$(Pipeline.Workspace)/stencil/scripts/aksService_PreflightCheck_v1.ps1'
+  displayName: Preflight Check Path
+
+steps:
+- bash: |
+    # This script installs kubelogin on the ADO agent, then converts the kube.config to azurecli token for authentication
+    wget https://github.com/Azure/kubelogin/releases/download/v0.0.24/kubelogin-linux-amd64.zip
+    unzip kubelogin-linux-amd64.zip
+    sudo mv bin/linux_amd64/kubelogin /usr/bin
+  # "Deploy to AKS - Stencil" - Convert to task group (yaml reference) later
+  displayName: 'Kubelogin Install'
+- task: PowerShell@2
+  displayName: 'Set Client Configuration Variables'
+  inputs:
+    targetType: filePath
+    filePath: ${{ parameters.ClientConfigurationScriptPath }}
+    arguments: ${{ parameters.ClientConfigurationArguments}}
+- task: FileTransform@1
+  displayName: 'Transform appsettings.json'
+  inputs:
+    folderPath: ${{ parameters.aks_ImageArtifact }}
+    fileType: json
+    targetFiles: '**/appsettings.json'
+- task: qetza.replacetokens.replacetokens-task.replacetokens@5
+  displayName: 'Replace tokens in **/values.yaml, **/Chart.yaml'
+  inputs:
+    rootDirectory: ${{ parameters.aks_HelmChartPath }}
+    targetFiles: '**/values.yaml, **/Chart.yaml'
+    tokenPattern: custom
+    tokenPrefix: '<<'
+    tokenSuffix: '>>'
+- task: AzureCLI@2
+  displayName: 'AKS Service Preflight Check'
+  inputs:
+    azureSubscription: ${{ parameters.aks_ServiceConnection }}
+    scriptType: pscore
+    scriptPath: ${{ parameters.PreflightCheckPath }}
+    arguments: ${{ parameters.PreflightCheckArgs }}
+- task: HelmDeploy@0
+  displayName: 'Service Deployment'
+  inputs:
+    azureSubscription: ${{ parameters.aks_ServiceConnection }}
+    azureResourceGroup: ${{ parameters.aks_ResourceGroup }}
+    kubernetesCluster: ${{ parameters.aks_ClusterName }}
+    useClusterAdmin: true
+    namespace: ${{ parameters.aks_Namespace }}
+    command: upgrade
+    chartType: FilePath
+    chartPath: ${{ parameters.aks_HelmChartPath }}
+    releaseName: ${{ parameters.aks_HelmReleaseLabel }}
+    arguments: '--debug'
+    force: true
+- task: HelmDeploy@0
+  displayName: 'Helm Release History'
+  inputs:
+    azureSubscription: ${{ parameters.aks_ServiceConnection }}
+    azureResourceGroup: ${{ parameters.aks_ResourceGroup }}
+    kubernetesCluster: ${{ parameters.aks_ClusterName }}
+    useClusterAdmin: true
+    namespace: ${{ parameters.aks_Namespace }}
+    command: history
+    arguments: ${{ parameters.aks_HelmReleaseLabel }}

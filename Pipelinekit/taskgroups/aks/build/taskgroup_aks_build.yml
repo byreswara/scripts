@@ -1,0 +1,154 @@
+parameters:
+- name: appsettingsPath
+  type: string
+  default: '$(appsettingsPath)'
+- name: branchfilter
+  type: string
+  default: '$(branchfilter)'
+- name: baseline_containerRegistry
+  type: string
+  default: $(baseline_containerRegistry)
+- name: pr_containerRegistry
+  type: string
+  default: $(pr_containerRegistry)
+- name: devtag
+  type: string
+  default: '$(devtag)'
+- name: dockerfilePath
+  type: string
+  default: '$(dockerfilePath)'
+- name: mercalisprServiceConnection
+  type: string
+- name: mercalisbaselineServiceConnection
+  type: string
+- name: dotnetVersion
+  type: string
+  default: $(dotnetVersion)
+- name: gitversionConfigPath
+  type: string
+  default: '$(gitversionConfigPath)'
+- name: gitversionSpec
+  type: string
+  default: $(gitversionSpec)
+- name: imageRepository
+  type: string
+  default: '$(imageRepository)'
+- name: tag
+  type: string
+  default: '$(tag)'
+
+steps:
+# Install dotnet for GitVersion
+- task: UseDotNet@2
+  displayName: "Install dotnet"
+  inputs:
+    packageType: sdk
+    version: ${{ parameters.dotnetVersion }}
+- task: gitversion/setup@0
+  displayName: Setup GitVersion
+  inputs:
+    versionSpec: ${{ parameters.gitversionSpec }}
+- task: gitversion/execute@0
+  displayName: GitVersion
+  inputs:
+    useConfigFile: true
+    configFilePath: ${{ parameters.gitversionConfigPath }}
+    additionalArguments: '/updateprojectfiles'
+- script: echo "##vso[build.updatebuildnumber]$(SemVer)"
+  displayName: 'Set Build Number'
+- task: CopyFiles@2
+  # Stage the appsettings.json file in the artifact so it can be transformed during release
+  displayName: 'Copy appsettings.json to: $(Build.ArtifactStagingDirectory)'
+  inputs:
+    SourceFolder: ${{ parameters.appsettingsPath }}
+    Contents: 'appsettings.json'
+    TargetFolder: $(Build.ArtifactStagingDirectory)/image
+- task: Docker@2
+  # Run Unit Tests
+  displayName: Run Unit Tests
+  inputs:
+    command: build
+    repository: ${{ parameters.imageRepository }}
+    dockerfile: ${{ parameters.dockerfilePath }}
+    arguments: '--progress=plain --rm --no-cache --target results -o $(build.ArtifactStagingDirectory)/tests'
+    containerRegistry: ${{ parameters.mercalisbaselineServiceConnection }}
+- task: PublishTestResults@2
+  displayName: Publish Test Results
+  inputs:
+    testResultsFormat: 'VSTest'
+    testResultsFiles: '$(Build.ArtifactStagingDirectory)/tests/testResults.trx'
+    failTaskOnFailedTests: true
+    failTaskOnMissingResultsFile: true
+- task: PublishCodeCoverageResults@2
+  displayName: Publish Code Coverage Results
+  inputs:
+    summaryFileLocation: '$(Build.ArtifactStagingDirectory)/tests/**/coverage.cobertura.xml'
+    failIfCoverageEmpty: true
+- task: Docker@2
+  # Build the image
+  displayName: Build Image
+  inputs:
+    command: build
+    repository: ${{ parameters.imageRepository }}
+    dockerfile: ${{ parameters.dockerfilePath }}
+    containerRegistry: ${{ parameters.mercalisbaselineServiceConnection }}
+    tags: |
+      ${{ parameters.tag }}
+- task: Bash@3
+  displayName: Set tags and set image staging directory
+  inputs:
+    targetType: inline
+    script: |
+      # Generate local tag with target ACR container registry name
+      # Tag with version
+      docker image tag ${{ parameters.baseline_containerRegistry }}/${{ parameters.imageRepository }}:${{ parameters.tag }} ${{ parameters.pr_containerRegistry }}/${{ parameters.imageRepository }}:${{ parameters.tag }}
+      # Tag with version-commit
+      docker image tag ${{ parameters.baseline_containerRegistry }}/${{ parameters.imageRepository }}:${{ parameters.tag }} ${{ parameters.pr_containerRegistry }}/${{ parameters.imageRepository }}:${{ parameters.devtag }}
+      mkdir $(Build.ArtifactStagingDirectory)/image -p
+- task: Docker@2
+  # Push image to dev ACR using Dev Tag
+  displayName: Push to mercalispr.aczurecr.io
+  inputs:
+    command: push
+    repository: ${{ parameters.imageRepository }}
+    containerRegistry: ${{ parameters.mercalisprServiceConnection }}
+    tags: ${{ parameters.devtag }}
+- task: Docker@2
+  displayName: 'Save image to TAR'
+  condition: and(succeeded(), in(variables['Build.SourceBranch'], 'refs/heads/main', 'refs/heads/master', variables['branchfilter']))
+  inputs:
+    command: save
+    repository: ${{ parameters.imageRepository }}
+    containerRegistry: ${{ parameters.mercalisprServiceConnection }}
+    arguments: '--output $(Build.ArtifactStagingDirectory)/image/${{ parameters.tag }}.image.tar ${{ parameters.pr_containerRegistry }}/${{ parameters.imageRepository }}:${{ parameters.tag }}'
+    addPipelineData: false
+    addBaseImageData: false
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish Artifact: tests'
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)/tests'
+    ArtifactName: tests
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish Artifact: image'
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)/image'
+    ArtifactName: image
+- task: Bash@3
+  displayName: Docker engine cleanup
+  condition: always()
+  inputs:
+    targetType: inline
+    script: |
+      docker system df
+
+      docker image ls
+      docker volume ls
+      docker container ls
+
+      # Prune build cache that's older than an hour, but still keep up to 2GB.
+      docker buildx prune --all --filter until=1h --keep-storage=2gb --force
+
+      # Prune everything else older than 12 hours.
+      docker system prune --all --filter until=12h --force
+
+      docker system df

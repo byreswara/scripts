@@ -1,0 +1,86 @@
+parameters:
+- name: ImageTarPath
+  type: string
+  default: '$(Pipeline.Workspace)/artifact/image/$(version).image.tar'
+  displayName: Image TAR Path
+
+- name: acr_ContainerRepository
+  type: string
+  default: '$(imageName)'
+  displayName: Image Name
+
+- name: acr_ImageTag
+  type: string
+  default: '$(imageTag)'
+  displayName: Image Tag
+
+- name: acr_CheckExistingACRTagsPath
+  type: string
+  default: '$(Pipeline.Workspace)/stencil/scripts/CheckExistingACRTags_v1.ps1'
+  displayName: Check Existing ACR Tags Path
+
+- name: acr_CheckExistingACRTagsArgs
+  default: '-ImageTag $(imageTag) -ImageName $(imageName) -ImageRepository $(imageRepository)'
+  displayName: Check Existing ACR Tags Arguments
+
+- name: acr_LockPushedImagePath
+  type: string
+  default: '$(Pipeline.Workspace)/stencil/scripts/LockPushedImage_v1.ps1'
+  displayName: Lock Pushed Image Path
+
+- name: acr_LockPushedImageArgs
+  type: string
+  default: '-ImageTag $(imageTag) -ImageName $(imageName) -ImageRepository $(imageRepository)'
+  displayName: Lock Pushed Image Arguments
+
+- name: aks_SetVersionScriptPath
+  type: string
+  default: '$(Pipeline.Workspace)/stencil/scripts/aksService_SetVersion_v1.ps1'
+  displayName: Set Version Script
+
+- name: aks_SetVersionScriptArgs
+  type: string
+  default: '-buildNumber $(resources.pipeline.artifact.runName)'
+  displayName: Set Version Script Arguments
+
+steps:
+- task: PowerShell@2
+  # "Push Image to ACR" - Convert to task group (yaml reference) later
+  displayName: 'Set Version Variables'
+  inputs:
+    targetType: filePath
+    filePath: ${{ parameters.aks_SetVersionScriptPath }}
+    arguments: ${{ parameters.aks_SetVersionScriptArgs }}
+- task: Docker@2
+  displayName: 'Load Image Artifact'
+  inputs:
+    containerRegistry: 'Legacy ACR'
+    command: image
+    arguments: 'load --input ${{ parameters.ImageTarPath }}'
+    addPipelineData: false
+    addBaseImageData: false
+- task: AzureCLI@2
+  displayName: 'Check Existing ACR Tags'
+  inputs:
+    azureSubscription: ACR
+    scriptType: pscore
+    scriptPath: ${{ parameters.acr_CheckExistingACRTagsPath }}
+    arguments: ${{ parameters.acr_CheckExistingACRTagsArgs }}
+- task: Docker@2
+  displayName: 'Push Image to ACR'
+  inputs:
+    containerRegistry: 'Legacy ACR'
+    repository: ${{ parameters.acr_ContainerRepository }}
+    command: push
+    tags: ${{ parameters.acr_ImageTag }}
+    addPipelineData: false
+  continueOnError: true
+  condition: and(Succeeded(), eq(variables['skipimagepush'], 'false'))
+- task: AzureCLI@2
+  displayName: 'Lock Pushed Image'
+  inputs:
+    azureSubscription: ACR
+    scriptType: pscore
+    scriptPath: '${{ parameters.acr_LockPushedImagePath }}'
+    arguments: '${{ parameters.acr_LockPushedImageArgs }}'
+  condition: and(Succeeded(), eq(variables['skipimagepush'], 'false'))
