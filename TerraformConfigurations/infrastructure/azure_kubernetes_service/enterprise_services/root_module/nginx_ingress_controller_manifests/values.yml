@@ -1,0 +1,22 @@
+controller:
+  extraVolumes:
+  - name: secrets-store-inline
+    csi:
+      driver: secrets-store.csi.k8s.io
+      readOnly: true
+      volumeAttributes:
+        secretProviderClass: <<provider_class>>
+  extraVolumeMounts:
+  - name: secrets-store-inline
+    mountPath: mountPath
+    readOnly: true
+  replicaCount: <<replica_count>>
+  nodeSelector:
+    kubernetes.io/os: linux
+  service:
+    annotations:
+      service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /healthz
+      service.beta.kubernetes.io/azure-load-balancer-internal: true
+defaultBackend:
+  nodeSelector:
+    kubernetes.io/os: linux

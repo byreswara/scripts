@@ -1,0 +1,183 @@
+trigger: none
+  
+pool:
+  vmImage: 'ubuntu-latest'
+resources:
+  repositories:
+  - repository: pipelinekit
+    type: git
+    name: DevOps/PipelineKit
+    ref: main
+  pipelines:
+  - pipeline: "build_artifact"
+    source: "azure-container-registry - build" # name of the build pipeline
+    #branch: "main"
+    trigger:
+      branches:
+        include:
+        - main
+
+parameters:
+- name: tf_apply
+  type: boolean
+  default: true
+  displayName: terraform apply
+
+- name: tf_destroy
+  type: boolean
+  default: false
+  displayName: terraform destroy
+
+- name: tf_unlock
+  type: boolean
+  default: false
+  displayName: terraform unlock
+
+- name: tf_unlock_Id
+  type: string
+  default: d6abefee-79ea-b91d-8d44-4e4008dddae6
+  displayName: terraform unlock ID
+
+variables:
+- template: variablegroups/terraform/release/vg_terraform_global.yml@pipelinekit
+- name: artifact
+  value: "enterprise_services"
+
+stages:
+- stage: 'pr'
+  displayName: 'Deploy PR ACR'
+  dependsOn: []
+  variables:
+  - template: variablegroups/terraform/release/vg_tfbackend_azure_qa.yml@pipelinekit
+  - name: tfbackend_Container
+    value: acr-qa-tf
+  - name: tfbackend_StateFile
+    value: mercalispr
+  - name: tfvars_file
+    value: mercalispr.tfvars
+  jobs:
+  - template: jobs/terraform/release/job_terraform_release.yml@pipelinekit
+    parameters:
+      ado_environment: env-devops-approvers
+      service_connection: azure-qa-terraform
+      tfbackend_StateFile: $(tfbackend_StateFile)
+      artifact_path: $(artifact_path)
+      tf_apply: ${{ parameters.tf_apply }}
+      tf_destroy: ${{ parameters.tf_destroy }}
+      tf_unlock: ${{ parameters.tf_unlock }}
+      tf_unlock_id: ${{ parameters.tf_unlock_Id }}
+
+- stage: 'dev'
+  displayName: 'Deploy Dev ACR'
+  dependsOn: []
+  variables:
+  - template: variablegroups/terraform/release/vg_tfbackend_azure_qa.yml@pipelinekit
+  - name: tfbackend_Container
+    value: acr-qa-tf
+  - name: tfbackend_StateFile
+    value: mercalisdev
+  - name: tfvars_file
+    value: mercalisdev.tfvars
+  jobs:
+  - template: jobs/terraform/release/job_terraform_release.yml@pipelinekit
+    parameters:
+      ado_environment: env-devops-approvers
+      service_connection: azure-qa-terraform
+      tfbackend_StateFile: $(tfbackend_StateFile)
+      artifact_path: $(artifact_path)
+      tf_apply: ${{ parameters.tf_apply }}
+      tf_destroy: ${{ parameters.tf_destroy }}
+      tf_unlock: ${{ parameters.tf_unlock }}
+      tf_unlock_id: ${{ parameters.tf_unlock_Id }}
+
+- stage: 'qa'
+  displayName: 'Deploy QA ACR'
+  dependsOn: []
+  variables:
+  - template: variablegroups/terraform/release/vg_tfbackend_azure_qa.yml@pipelinekit
+  - name: tfbackend_Container
+    value: acr-qa-tf
+  - name: tfbackend_StateFile
+    value: mercalisqa
+  - name: tfvars_file
+    value: mercalisqa.tfvars
+  jobs:
+  - template: jobs/terraform/release/job_terraform_release.yml@pipelinekit
+    parameters:
+      ado_environment: env-devops-approvers
+      service_connection: azure-qa-terraform
+      tfbackend_StateFile: $(tfbackend_StateFile)
+      artifact_path: $(artifact_path)
+      tf_apply: ${{ parameters.tf_apply }}
+      tf_destroy: ${{ parameters.tf_destroy }}
+      tf_unlock: ${{ parameters.tf_unlock }}
+      tf_unlock_id: ${{ parameters.tf_unlock_Id }}
+
+- stage: 'uat'
+  displayName: 'Deploy UAT ACR'
+  dependsOn: []
+  variables:
+  - template: variablegroups/terraform/release/vg_tfbackend_azure_uat.yml@pipelinekit
+  - name: tfbackend_Container
+    value: acr-uat-tf
+  - name: tfbackend_StateFile
+    value: mercalisuat
+  - name: tfvars_file
+    value: mercalisuat.tfvars
+  jobs:
+  - template: jobs/terraform/release/job_terraform_release.yml@pipelinekit
+    parameters:
+      ado_environment: env-devops-approvers
+      service_connection: azure-uat-terraform
+      tfbackend_StateFile: $(tfbackend_StateFile)
+      artifact_path: $(artifact_path)
+      tf_apply: ${{ parameters.tf_apply }}
+      tf_destroy: ${{ parameters.tf_destroy }}
+      tf_unlock: ${{ parameters.tf_unlock }}
+      tf_unlock_id: ${{ parameters.tf_unlock_Id }}
+
+- stage: 'prod'
+  displayName: 'Deploy Prod ACR'
+  dependsOn: []
+  variables:
+  - template: variablegroups/terraform/release/vg_tfbackend_azure_prod.yml@pipelinekit
+  - name: tfbackend_Container
+    value: acr-prod-tf
+  - name: tfbackend_StateFile
+    value: mercalisprod
+  - name: tfvars_file
+    value: mercalisprod.tfvars
+  jobs:
+  - template: jobs/terraform/release/job_terraform_release.yml@pipelinekit
+    parameters:
+      ado_environment: env-devops-approvers
+      service_connection: azure-prod-terraform
+      tfbackend_StateFile: $(tfbackend_StateFile)
+      artifact_path: $(artifact_path)
+      tf_apply: ${{ parameters.tf_apply }}
+      tf_destroy: ${{ parameters.tf_destroy }}
+      tf_unlock: ${{ parameters.tf_unlock }}
+      tf_unlock_id: ${{ parameters.tf_unlock_Id }}
+
+- stage: 'baseline'
+  displayName: 'Deploy Baseline ACR'
+  dependsOn: []
+  variables:
+  - template: variablegroups/terraform/release/vg_tfbackend_azure_prod.yml@pipelinekit
+  - name: tfbackend_Container
+    value: acr-prod-tf
+  - name: tfbackend_StateFile
+    value: mercalisbaseline
+  - name: tfvars_file
+    value: mercalisbaseline.tfvars
+  jobs:
+  - template: jobs/terraform/release/job_terraform_release.yml@pipelinekit
+    parameters:
+      ado_environment: env-devops-approvers
+      service_connection: azure-prod-terraform
+      tfbackend_StateFile: $(tfbackend_StateFile)
+      artifact_path: $(artifact_path)
+      tf_apply: ${{ parameters.tf_apply }}
+      tf_destroy: ${{ parameters.tf_destroy }}
+      tf_unlock: ${{ parameters.tf_unlock }}
+      tf_unlock_id: ${{ parameters.tf_unlock_Id }}

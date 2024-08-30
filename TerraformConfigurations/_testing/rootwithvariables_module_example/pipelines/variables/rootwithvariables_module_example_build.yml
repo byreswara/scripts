@@ -1,0 +1,4 @@
+variables:
+  tf_templates: "nsg_template/v1"
+  root_module: rootwithvariables_module_example
+  project_name: azure_virtual_desktop

@@ -1,0 +1,40 @@
+trigger:
+  branches:
+    include:
+    - main
+  paths:
+    include:
+    - "<todo>"
+
+resources:
+  repositories:
+  - repository: TerraformTemplates
+    name: Infrastructure/TerraformTemplates
+    type: git
+    ref: main
+  - repository: pipelinekit
+    name: DevOps/Pipelinekit
+    type: git
+    ref: main
+  - repository: TerraformConfigurations
+    name: Infrastructure/TerraformConfigurations
+    type: git
+    ref: main
+
+variables:
+- template: variablegroups/terraform/build/vg_terraform_build_global.yml@pipelinekit
+
+stages:
+- stage: "build"
+  displayName: "Build Terraform Templates"
+  variables:
+  - name: tf_templates
+    value: "nsg_template/v1"
+  - name: root_module
+    value: "nsg-snet-afo-avd-eus-01"
+  - name: project
+    value: "networking/nsg-avd"
+  - name: root_module_path
+    value: "$(infrastructure_path)/$(project)/$(root_module)/root_module"
+  jobs:
+  - template: jobs/terraform/build/job_terraform_build.yml@pipelinekit

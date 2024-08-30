@@ -1,0 +1,41 @@
+trigger:
+  branches:
+    include:
+    - main
+pool:
+  vmImage: 'ubuntu-latest'
+resources:
+  repositories:
+  - repository: pipelinekit
+    type: git
+    name: DevOps/PipelineKit
+    ref: main
+  pipelines:
+  - pipeline: "build_artifact"
+    source: "nsg-snet-desktop-avd-eus-01 - build" # name of the build pipeline
+    branch: "main"
+    trigger:
+      branches:
+        include:
+        - main
+
+variables:
+- template: variablegroups/terraform/release/vg_terraform_global.yml@pipelinekit
+
+stages:
+- stage: "deploy"
+  displayName: "Deploy nsg-snet-desktop-avd-eus-01"
+  dependsOn: []
+  variables:
+  - template: variablegroups/terraform/release/vg_tfbackend_azure_avdsubscription.yml@pipelinekit
+  - name: tfbackend_Container
+    value: "nsg-avd-tf"
+  - name: tfvars_file
+    value: "nsg-snet-desktop-avd-eus-01.tfvars"
+  - name: artifact
+    value: "nsg-snet-desktop-avd-eus-01"
+  jobs:
+  - template: jobs/terraform/release/job_terraform_release.yml@pipelinekit
+    parameters:
+      ado_environment: env-netops-approvers
+      service_connection: azure-avdsubscription-terraform

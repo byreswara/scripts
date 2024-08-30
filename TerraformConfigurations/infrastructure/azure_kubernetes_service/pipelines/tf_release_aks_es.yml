@@ -1,0 +1,140 @@
+trigger:
+  branches:
+    include:
+    - main
+  paths:
+    include:
+    - "infrastructure/azure_kubernetes_service/*"
+
+pool: 'DO-NOT-USE-DockerLinux'
+  #vmImage: 'ubuntu-latest'
+
+resources:
+  repositories:
+  - repository: pipelinekit
+    type: git
+    name: DevOps/PipelineKit
+    ref: main
+  pipelines:
+  - pipeline: "build_artifact"
+    source: "aks-enterprise-services - build" # name of the build pipeline
+    branch: "main"
+    trigger:
+      branches:
+        include:
+        - main
+
+parameters:
+- name: tf_apply
+  type: boolean
+  default: false
+  displayName: terraform apply
+
+- name: tf_destroy
+  type: boolean
+  default: false
+  displayName: terraform destroy
+
+- name: tf_unlock
+  type: boolean
+  default: false
+  displayName: terraform unlock
+
+- name: tf_unlock_Id
+  type: string
+  default: d6abefee-79ea-b91d-8d44-4e4008dddae6
+  displayName: terraform unlock ID
+
+
+variables:
+- template: variablegroups/terraform/release/vg_terraform_global.yml@pipelinekit
+
+stages:
+- stage: "qa"
+  displayName: "Deploy QA AKS"
+  dependsOn: []
+  variables:
+  - template: variablegroups/terraform/release/vg_terraform_global.yml@pipelinekit
+  - template: variablegroups/terraform/release/vg_tfbackend_azure_qa.yml@pipelinekit
+  - name: tfbackend_Container
+    value: aks-qa-tf
+  - name: tfvars_file
+    value: qa.tfvars
+  - name: artifact
+    value: enterprise_services
+  jobs:
+  - template: jobs/terraform/release/job_terraform_release.yml@pipelinekit
+    parameters:
+      ado_environment: env-devops-approvers
+      service_connection: azure-qa-terraform
+      tfbackend_StateFile: aks-qa-cus-es-01
+      artifact_path: $(artifact_path)
+      tf_apply: ${{ parameters.tf_apply }}
+      tf_destroy: ${{ parameters.tf_destroy }}
+      tf_unlock: ${{ parameters.tf_unlock }}
+      tf_unlock_id: ${{ parameters.tf_unlock_Id }}
+
+- stage: "qa_ingress_controller"
+  displayName: "Deploy QA NGINX Ingress Controller"
+  dependsOn: []
+  variables:
+  - template: variablegroups/aks/release/vg_nginx_release_global.yml@pipelinekit
+  - name: artifact
+    value: enterprise_services
+  - name: aks_cluster_name
+    value: aks-qa-cus-es-01
+  - name: aks_resource_group
+    value: rg-aks-qa-cus-es-01
+  - name: keyvault_name
+    value: keyvault-qa-cus-es-01
+  - name: cert_name
+    value: qatest2023
+  jobs:
+  - template: jobs/aks/release/job_nginx_ingress_release.yml@pipelinekit
+    parameters:
+      ado_environment: env-devops-approvers
+      service_connection: azure-qa-terraform
+
+- stage: "qa_reloader_deployment"
+  displayName: "Deploy QA reloader"
+  dependsOn: []
+  variables:
+  - template: variablegroups/aks/release/vg_reloader_release_global.yml@pipelinekit
+  - name: artifact
+    value: enterprise_services
+  - name: aks_cluster_name
+    value: aks-qa-cus-es-01
+  - name: aks_resource_group
+    value: rg-aks-qa-cus-es-01
+  jobs:
+  - template: jobs/aks/release/job_reloader_release.yml@pipelinekit
+    parameters:
+      ado_environment: env-devops-approvers
+      service_connection: azure-qa-terraform
+   
+# - template: stages/terraform/release/stage_terraform_release.yml@pipelinekit
+#   parameters:
+#     stage_name: "UAT"
+#     stage_display_name: "Deploy UAT AKS"
+#     ado_environment: env-uat-aks # example: "env-qa-example"
+#     service_connection: azure-uat-terraform # example: "azure-qa-terraform"
+#     artifact: enterprise_services # example: "rootwithvariables_module_example"
+#     tfbackend_Container: aks-uat-tf # example: "nsg-qa-example"
+#     tfbackend_rg: rg-terraform-uat
+#     tfbackend_StorageAccount: sttctfuatcus001
+#     tf_varsfile: vars/uat.tfvars # example: "vars/example.tfvars"
+#     tf_version: 1.7.5
+
+# - template: stages/terraform/release/stage_terraform_release.yml@pipelinekit
+#   parameters:
+#     stage_name: "PROD"
+#     stage_display_name: "Deploy PROD AKS"
+#     ado_environment: env-prod-aks # example: "env-qa-example"
+#     service_connection: azure-prod-terraform # example: "azure-qa-terraform"
+#     artifact: enterprise_services # example: "rootwithvariables_module_example"
+#     tfbackend_Container: aks-prod-tf # example: "nsg-qa-example"
+#     tfbackend_rg: rg-terraform-prod
+#     tfbackend_StorageAccount: sttctfprodcus001
+#     tf_varsfile: vars/prod.tfvars # example: "vars/example.tfvars"
+#     tf_version: 1.7.5
+

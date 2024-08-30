@@ -1,0 +1,35 @@
+trigger:
+  branches:
+    include:
+    - main
+pool:
+  vmImage: 'ubuntu-latest'
+resources:
+  repositories:
+  - repository: pipelinekit
+    type: git
+    name: DevOps/PipelineKit
+    ref: ma-initialsetup
+  pipelines:
+  - pipeline: "build_artifact"
+    source: "tf_buildwithvar_example"
+    # branch: "main"
+    trigger:
+      branches:
+        include:
+        - main
+
+# variables are defined at the pipeline level and can be used throughout the pipeline, including templates.
+# These variables are referenced as default values in the taskgroup templates and can be overridden at the pipeline level via template parameters.
+variables:
+- template: variablegroups/terraform/release/vg_rg-terraform-qa.yml@pipelinekit # contains default values for terraform backend configuration
+
+stages:
+- template: stages/terraform/stage_terraform_release.yml@pipelinekit
+  parameters:
+    ado_environment: "env-qa-example"
+    service_connection: "azure-qa-terraform"
+    artifact: "rootwithvariables_module_example"
+    tfbackend_Container: "nsg-qa-example"
+    tf_varsfile: "vars/example.tfvars"
+    tf_version: 1.7.5

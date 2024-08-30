@@ -1,0 +1,43 @@
+trigger:
+  branches:
+    include:
+    - main
+pool:
+  vmImage: 'ubuntu-latest'
+resources:
+  repositories:
+  - repository: pipelinekit
+    type: git
+    name: DevOps/PipelineKit
+    ref: ma-rebuildingtf
+  pipelines:
+  - pipeline: "build_artifact"
+    source: "<todo>" # name of the build pipeline
+    # branch: "main"
+    trigger:
+      branches:
+        include:
+        - main
+
+variables:
+- template: variablegroups/terraform/release/vg_terraform_global.yml@pipelinekit
+
+# Note: Copy "- stage:"  block for additional environments
+stages:
+- stage: "qa"
+  displayName: "Deploy"
+  dependsOn: []
+  variables:
+  - template: variablegroups/terraform/release/vg_tfbackend_azure_qa.yml@pipelinekit
+  - name: tfbackend_Container
+    value: "<todo>" # example: "aks-qa-tf"
+  - name: tfvars_file
+    value: "<todo>" # example: "qa.tfvars"
+  - name: artifact
+    value: "<todo>" # example: "enterprise_services"
+  jobs:
+  - template: jobs/terraform/release/job_terraform_release.yml@pipelinekit
+    parameters:
+      ado_environment: env-qa-aks # Approval Gate
+      service_connection: azure-qa-terraform # example: "azure-qa-terraform"
+      # tfbackend_StateFile: <todo> # Defaults to $(artifact)

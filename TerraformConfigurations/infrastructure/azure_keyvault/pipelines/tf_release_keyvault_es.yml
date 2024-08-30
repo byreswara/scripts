@@ -1,0 +1,108 @@
+trigger:
+  branches:
+    include:
+    - main
+pool:
+  vmImage: 'ubuntu-latest'
+resources:
+  repositories:
+  - repository: pipelinekit
+    type: git
+    name: DevOps/PipelineKit
+    ref: main
+  pipelines:
+  - pipeline: "build_artifact"
+    source: "azure-keyvault-es - build"
+    # branch: "main"
+    trigger:
+      branches:
+        include:
+        - main
+
+parameters:
+- name: tf_apply
+  type: boolean
+  default: true
+  displayName: terraform apply
+
+- name: tf_destroy
+  type: boolean
+  default: false
+  displayName: terraform destroy
+
+- name: tf_unlock
+  type: boolean
+  default: false
+  displayName: terraform unlock
+
+- name: tf_unlock_Id
+  type: string
+  default: d6abefee-79ea-b91d-8d44-4e4008dddae6
+  displayName: terraform unlock ID
+
+variables:
+- template: variablegroups/terraform/release/vg_terraform_global.yml@pipelinekit
+
+stages:
+- stage: "qa"
+  displayName: "Deploy QA Keyvault"
+  dependsOn: []
+  variables:
+  - template: variablegroups/terraform/release/vg_tfbackend_azure_qa.yml@pipelinekit
+  - name: tfbackend_Container
+    value: "kv-qa-tf"
+  - name: tfvars_file
+    value: "qa.tfvars"
+  - name: artifact
+    value: "enterprise_services"
+  jobs:
+  - template: jobs/terraform/release/job_terraform_release.yml@pipelinekit
+    parameters:
+      ado_environment: env-devops-approvers
+      service_connection: azure-qa-terraform
+      tf_apply: ${{ parameters.tf_apply }}
+      tf_destroy: ${{ parameters.tf_destroy }}
+      tf_unlock: ${{ parameters.tf_unlock }}
+      tf_unlock_id: ${{ parameters.tf_unlock_Id }}
+
+- stage: "uat"
+  displayName: "Deploy UAT Keyvault"
+  dependsOn: []
+  variables:
+  - template: variablegroups/terraform/release/vg_tfbackend_azure_uat.yml@pipelinekit
+  - name: tfbackend_Container
+    value: "kv-uat-tf"
+  - name: tfvars_file
+    value: "uat.tfvars"
+  - name: artifact
+    value: "enterprise_services"
+  jobs:
+  - template: jobs/terraform/release/job_terraform_release.yml@pipelinekit
+    parameters:
+      ado_environment: env-devops-approvers
+      service_connection: azure-uat-terraform
+      tf_apply: ${{ parameters.tf_apply }}
+      tf_destroy: ${{ parameters.tf_destroy }}
+      tf_unlock: ${{ parameters.tf_unlock }}
+      tf_unlock_id: ${{ parameters.tf_unlock_Id }}
+
+- stage: "prod"
+  displayName: "Deploy"
+  dependsOn: []
+  variables:
+  - template: variablegroups/terraform/release/vg_tfbackend_azure_prod.yml@pipelinekit
+  - name: tfbackend_Container
+    value: "kv-prod-tf"
+  - name: tfvars_file
+    value: "prod.tfvars"
+  - name: artifact
+    value: "enterprise_services"
+  jobs:
+  - template: jobs/terraform/release/job_terraform_release.yml@pipelinekit
+    parameters:
+      ado_environment: env-devops-approvers
+      service_connection: azure-prod-terraform
+      tf_apply: ${{ parameters.tf_apply }}
+      tf_destroy: ${{ parameters.tf_destroy }}
+      tf_unlock: ${{ parameters.tf_unlock }}
+      tf_unlock_id: ${{ parameters.tf_unlock_Id }}
