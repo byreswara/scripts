@@ -10,8 +10,8 @@ $subscription = "qa"
 $resource_group_name = "rg-terratesting-qa"
 
 $env:TF_BACKEND_RG = $storageaccount_rg
-$env:TF_BACKEND_KEY = "2zQgLl7vVHjSnsN/o3k3iqCWVKuLciqSM6o5yNvDje9fVZAn7bzdHUAGy1L/C6Z2D1gNFUcpyDsZ+AStDDhWBg=="
-$env:SubscriptionID = "9b28bd6c-83d4-4721-b1e9-cec8810ab5f9"
+$env:TF_BACKEND_KEY = ""
+$env:SubscriptionID = ""
 $env:TF_BACKEND_STORAGE_ACCOUNT = $storageaccount_name
 $env:TF_BACKEND_CONTAINER = $container_name
 
