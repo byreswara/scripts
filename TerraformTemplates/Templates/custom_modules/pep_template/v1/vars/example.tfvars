@@ -1,0 +1,5 @@
+private_endpoint_name = "aks-private-endpoint"
+net_link_nmae         = "aks-link"
+pep_subnet_id         = ""
+subresource_name      = "kubeApi"
+private_dns_zone_group_name  = "aks.privatelink.azure.com"

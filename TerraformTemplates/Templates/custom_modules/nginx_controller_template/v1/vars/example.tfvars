@@ -1,0 +1,6 @@
+aks_name = "aks-example-env"
+aks_resource_group_name = "rg-example-env"
+ingress_controller_namespace = "ingress-nginx"
+key_vault_name = "kv-example-env"
+certificate_name = "cert-example-env"
+ingress_nginx_name = "nginx-controller"

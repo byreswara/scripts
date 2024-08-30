@@ -1,0 +1,32 @@
+{
+	"/subscriptions/9b28bd6c-83d4-4721-b1e9-cec8810ab5f9/resourceGroups/rg-qa-aks-01": {
+		"resource_id": "/subscriptions/9b28bd6c-83d4-4721-b1e9-cec8810ab5f9/resourceGroups/rg-qa-aks-01",
+		"resource_type": "azurerm_resource_group",
+		"resource_name": "res-0"
+	},
+	"/subscriptions/9b28bd6c-83d4-4721-b1e9-cec8810ab5f9/resourceGroups/rg-qa-aks-01/providers/Microsoft.ContainerService/managedClusters/aks-qa-01": {
+		"resource_id": "/subscriptions/9b28bd6c-83d4-4721-b1e9-cec8810ab5f9/resourceGroups/rg-qa-aks-01/providers/Microsoft.ContainerService/managedClusters/aks-qa-01",
+		"resource_type": "azurerm_kubernetes_cluster",
+		"resource_name": "res-1"
+	},
+	"/subscriptions/9b28bd6c-83d4-4721-b1e9-cec8810ab5f9/resourceGroups/rg-qa-aks-01/providers/Microsoft.ContainerService/managedClusters/aks-qa-01/agentPools/agentpool": {
+		"resource_id": "/subscriptions/9b28bd6c-83d4-4721-b1e9-cec8810ab5f9/resourceGroups/rg-qa-aks-01/providers/Microsoft.ContainerService/managedClusters/aks-qa-01/agentPools/agentpool",
+		"resource_type": "azurerm_kubernetes_cluster_node_pool",
+		"resource_name": "res-2"
+	},
+	"/subscriptions/9b28bd6c-83d4-4721-b1e9-cec8810ab5f9/resourceGroups/rg-qa-aks-01/providers/Microsoft.ContainerService/managedClusters/aks-qa-01/agentPools/servicepool": {
+		"resource_id": "/subscriptions/9b28bd6c-83d4-4721-b1e9-cec8810ab5f9/resourceGroups/rg-qa-aks-01/providers/Microsoft.ContainerService/managedClusters/aks-qa-01/agentPools/servicepool",
+		"resource_type": "azurerm_kubernetes_cluster_node_pool",
+		"resource_name": "res-3"
+	},
+	"/subscriptions/9b28bd6c-83d4-4721-b1e9-cec8810ab5f9/resourceGroups/rg-qa-aks-01/providers/microsoft.insights/metricalerts/CPU Usage Percentage - aks-qa-01": {
+		"resource_id": "/subscriptions/9b28bd6c-83d4-4721-b1e9-cec8810ab5f9/resourceGroups/rg-qa-aks-01/providers/Microsoft.Insights/metricAlerts/CPU Usage Percentage - aks-qa-01",
+		"resource_type": "azurerm_monitor_metric_alert",
+		"resource_name": "res-4"
+	},
+	"/subscriptions/9b28bd6c-83d4-4721-b1e9-cec8810ab5f9/resourceGroups/rg-qa-aks-01/providers/microsoft.insights/metricalerts/Memory Working Set Percentage - aks-qa-01": {
+		"resource_id": "/subscriptions/9b28bd6c-83d4-4721-b1e9-cec8810ab5f9/resourceGroups/rg-qa-aks-01/providers/Microsoft.Insights/metricAlerts/Memory Working Set Percentage - aks-qa-01",
+		"resource_type": "azurerm_monitor_metric_alert",
+		"resource_name": "res-5"
+	}
+}

@@ -1,0 +1,12 @@
+controller:
+  extraVolumes:
+      - name: secrets-store-inline
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: "${key_vault_name}"
+  extraVolumeMounts:
+      - name: secrets-store-inline
+        mountPath: mountPath
+        readOnly: true

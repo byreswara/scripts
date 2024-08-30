@@ -1,0 +1,54 @@
+$environment = "qa"
+$location = "centralus"
+$serviceName = "testing"
+$storageaccount_name = "sttctfqacus001"
+$storageaccount_rg = "rg-terraform-qa"
+$snet_iteration = "02"
+$container_name = "snet-$ServiceName-qa-tf-$snet_iteration"
+$resource_group_name = "rg-terratesting-qa"
+$subnet_cidr_list = '["10.82.11.0/24"]'
+$network_security_group_name   = "nsg-snet-test-qa-01"
+$virtual_network_name = "vnet-qa-cus-02"
+$client_name = "akstest"
+
+
+$env:TF_BACKEND_RG = $storageaccount_rg
+$env:TF_BACKEND_KEY = "2zQgLl7vVHjSnsN/o3k3iqCWVKuLciqSM6o5yNvDje9fVZAn7bzdHUAGy1L/C6Z2D1gNFUcpyDsZ+AStDDhWBg=="
+$env:SubscriptionID = "9b28bd6c-83d4-4721-b1e9-cec8810ab5f9"
+$env:TF_BACKEND_STORAGE_ACCOUNT = $storageaccount_name
+$env:TF_BACKEND_CONTAINER = $container_name
+
+# Uncomment to enable trace logging: TRACE , DEBUG , INFO , WARN , ERROR and FATAL. Default is warn.
+#$env:TF_LOG="warn"
+
+az account set -s $env:SubscriptionID
+#az account list
+Write-Host $env:TF_BACKEND_RG $env:TF_BACKEND_STORAGE_ACCOUNT $env:TF_BACKEND_CONTAINER
+terraform init `
+    -backend-config="resource_group_name=$env:TF_BACKEND_RG" `
+    -backend-config="storage_account_name=$env:TF_BACKEND_STORAGE_ACCOUNT" `
+    -backend-config="container_name=$env:TF_BACKEND_CONTAINER" `
+    -backend-config="key=$env:TF_BACKEND_KEY" `
+    -input="true" `
+    -reconfigure
+terraform plan  `
+    -out="./tfplan" `
+    -var-file="./vars/$environment.tfvars" `
+    -var="location_short=$location_short" `
+    -var="subnet_iteration=$snet_iteration" `
+    -var="resource_group_name=$resource_group_name" `
+    -var="environment=$environment" `
+    -var="subnet_cidr_list=$subnet_cidr_list" `
+    -var="network_security_group_name=$network_security_group_name" `
+    -var="virtual_network_name=$virtual_network_name" `
+    -var="client_name=$client_name" `
+    -refresh="true" `
+    -lock="false"
+    # -var="subsriptionId=$env:SubscriptionID"
+    # -var="tenantId=e19ce0fc-2429-4a9e-b937-3ef24246c22c" `
+    # -refresh="true" `
+    # -lock="false"
+terraform apply `
+    -refresh=true `
+    -auto-approve `
+    ./tfplan
