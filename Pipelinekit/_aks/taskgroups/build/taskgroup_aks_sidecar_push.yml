@@ -1,0 +1,104 @@
+parameters:
+- name: branchfilter
+  type: string
+  default: '$(branchfilter)'
+- name: acr_AzureConnection
+  type: string
+  displayName: ACR Azure Service Connection
+- name: acr_DockerConnection
+  type: string
+  displayName: ACR docker Connection
+- name: acr_CheckExistingACRTagsPath
+  type: string
+  default: $(acr.CheckExistingACRTagsPath)
+  displayName: Check Existing ACR Tags Path
+- name: acr_CheckExistingACRTagsArgs
+  default: $(acr.CheckExistingACRTagsArgs)
+  displayName: Check Existing ACR Tags Arguments
+- name: targetimageRepository
+  type: string
+  displayName: ACR target imageRepository
+- name: imageRepository
+  type: string
+  default: '$(imageRepository)'
+- name: imageName
+  type: string
+  default: '$(imageName)'
+- name: imageTag
+  type: string
+  default: '$(imageTag)'
+
+steps:
+- download: current
+  displayName: Downloading ${{ parameters.imageTag }} image tar
+  artifact: image
+
+# Check if image already exists in ACR
+- task: AzureCLI@2
+  displayName: 'Check Existing ${{ parameters.targetimageRepository }} ACR Tags'
+  inputs:
+    azureSubscription: ${{ parameters.acr_AzureConnection }}
+    scriptType: pscore
+    scriptPath: ${{ parameters.acr_CheckExistingACRTagsPath }}
+    arguments: ${{ parameters.acr_CheckExistingACRTagsArgs }}
+
+  # Load image artifact into docker from tar file
+- task: Docker@2
+  displayName: 'Load Image Artifact'
+  inputs:
+    containerRegistry: '${{ parameters.acr_DockerConnection }}'
+    command: image
+    arguments: 'load --input $(imageTarPath)'
+    addPipelineData: false
+    addBaseImageData: false
+
+- task: Bash@3
+  displayName: Set ${{ parameters.imageTag }} tag to ${{ parameters.targetimageRepository }}
+  inputs:
+    targetType: inline
+    script: |
+      echo "pre-tag list:"
+      docker image ls
+      echo "Generate ${{ parameters.imageTag }} tag with ${{ parameters.targetimageRepository }} ACR "
+      docker image tag ${{ parameters.imageRepository }}/${{ parameters.imageName }}:${{ parameters.imageTag }} ${{ parameters.targetimageRepository }}/${{ parameters.imageName }}:${{ parameters.imageTag }}
+      echo "post-tag list:"
+      docker image ls
+
+- task: Docker@2
+  # Push to  ACR using  Tag
+  displayName: Push ${{ parameters.imageTag }} image to ${{ parameters.targetimageRepository }} ACR
+  inputs:
+    command: push
+    repository: ${{ parameters.imageName }}
+    containerRegistry: ${{ parameters.acr_DockerConnection }}
+    tags: ${{ parameters.imageTag }}
+
+  # Lock pushed image in ACR
+- task: AzureCLI@2
+  displayName: 'Lock Pushed Image'
+  inputs:
+    azureSubscription: ${{ parameters.acr_AzureConnection }}
+    scriptType: ps
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      az acr repository update --name ${{ parameters.targetimageRepository }} --image ${{ parameters.imageName }}`:${{ parameters.imageTag }} --write-enabled false
+
+- task: Bash@3
+  displayName: Docker engine cleanup
+  condition: always()
+  inputs:
+    targetType: inline
+    script: |
+      docker system df
+
+      docker image ls
+      docker volume ls
+      docker container ls
+
+      # Prune build cache that's older than an hour, but still keep up to 2GB.
+      docker buildx prune --all --filter until=1h --keep-storage=2gb --force
+
+      # Prune everything else older than 12 hours.
+      docker system prune --all --filter until=12h --force
+
+      docker system df

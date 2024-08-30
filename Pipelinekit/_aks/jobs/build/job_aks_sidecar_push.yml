@@ -1,0 +1,54 @@
+# Most of the parameters are passed in from the vg_aks_build_global.yml file
+parameters:
+- name: agentpool
+  type: string
+  default: $(agentpool)
+- name: branchfilter
+  type: string
+  default: '$(branchfilter)'
+- name: acr_AzureConnection
+  type: string
+  displayName: ACR Azure Service Connection
+- name: acr_DockerConnection
+  type: string
+  displayName: ACR docker Connection
+- name: acr_CheckExistingACRTagsPath
+  type: string
+  default: $(acr.CheckExistingACRTagsPath)
+  displayName: Check Existing ACR Tags Path
+- name: acr_CheckExistingACRTagsArgs
+  default: $(acr.CheckExistingACRTagsArgs)
+  displayName: Check Existing ACR Tags Arguments
+- name: targetimageRepository
+  type: string
+  displayName: ACR target imageRepository
+- name: imageRepository
+  type: string
+  default: '$(imageRepository)'
+- name: imageName
+  type: string
+  default: '$(imageName)'
+- name: imageTag
+  type: string
+  default: '$(imageTag)'
+
+jobs:
+- job: 
+  displayName: "push Docker Image to ${{ parameters.targetimageRepository }} ACR"
+  pool: ${{ parameters.agentpool }}
+  steps:
+  - checkout: self
+    path: s # Set the path to the root of the repository to /s (solutions directory on agent) - This allows gitversion to function properly
+  - checkout: pipelinekit
+    path: a # Set the path to the root of pipelinekit to /a (artifacts directory on agent) - This keeps the pipelinekit repository separate from the solution repository
+  - template: ../../taskgroups/build/taskgroup_aks_sidecar_push.yml
+    parameters:
+      branchfilter: ${{ parameters.branchfilter }}
+      acr_AzureConnection: ${{ parameters.acr_AzureConnection }}
+      acr_DockerConnection: ${{ parameters.acr_DockerConnection }}
+      acr_CheckExistingACRTagsPath: ${{ parameters.acr_CheckExistingACRTagsPath }}
+      acr_CheckExistingACRTagsArgs: ${{ parameters.acr_CheckExistingACRTagsArgs }}
+      targetimageRepository: ${{ parameters.targetimageRepository }}
+      imageRepository: ${{ parameters.imageRepository }}
+      imageName: ${{ parameters.imageName }}
+      imageTag: ${{ parameters.imageTag }}

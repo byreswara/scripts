@@ -1,0 +1,132 @@
+parameters:
+- name: branchfilter
+  type: string
+  default: '$(branchfilter)'
+- name: mercalisbaselineServiceConnection
+  type: string
+- name: acr_AzureConnection
+  type: string
+  displayName: ACR Azure Service Connection
+- name: acr_CheckExistingACRTagsPath
+  type: string
+  default: $(acr.CheckExistingACRTagsPath)
+  displayName: Check Existing ACR Tags Path
+- name: acr_CheckExistingACRTagsArgs
+  default: $(acr.CheckExistingACRTagsArgs)
+  displayName: Check Existing ACR Tags Arguments
+  
+steps:
+# Check if image already exists in ACR
+- task: AzureCLI@2
+  displayName: 'Check Existing ACR Tags'
+  inputs:
+    azureSubscription: ${{ parameters.acr_AzureConnection }}
+    scriptType: pscore
+    scriptPath: ${{ parameters.acr_CheckExistingACRTagsPath }}
+    arguments: ${{ parameters.acr_CheckExistingACRTagsArgs }}
+
+- task: Docker@2
+  # Build the image
+  displayName: Build Image
+  inputs:
+    command: build
+    repository: $(imageName) #make sure to pass baseline image repository as input trialcardacr.io
+    dockerfile: $(dockerfilePath)
+    containerRegistry: ${{ parameters.mercalisbaselineServiceConnection }}
+    tags: |
+      $(imageTag)
+
+- task: Docker@2
+  # Push to baseline ACR using version Tag
+  displayName: Push $(imageTag) image to $(imageRepository)
+  inputs:
+    command: push
+    repository: $(imageName)
+    containerRegistry: ${{ parameters.mercalisbaselineServiceConnection }}
+    tags: $(imageTag)
+
+  # Lock pushed image in ACR
+- task: AzureCLI@2
+  displayName: 'Lock Pushed Image'
+  inputs:
+    azureSubscription: ${{ parameters.acr_AzureConnection }}
+    scriptType: ps
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      az acr repository update --name $(imageRepository) --image $(imageName)`:$(imageTag) --write-enabled false
+
+- task: Bash@3
+  displayName: Set latest tag
+  inputs:
+    targetType: inline
+    script: |
+      echo "pre-tag list:"
+      docker image ls
+      echo "Generate latest tag with target ACR container registry name"
+      docker image tag $(imageRepository)/$(imageName):$(imageTag) $(imageRepository)/$(imageName):latest
+      echo "post-tag list:"
+      docker image ls
+
+- task: Docker@2
+  # Push to baseline ACR using latest Tag
+  displayName: Push latest image to $(imageRepository)
+  inputs:
+    command: push
+    repository: $(imageName)
+    containerRegistry: ${{ parameters.mercalisbaselineServiceConnection }}
+    tags: latest
+
+  # Lock pushed image in ACR
+- task: AzureCLI@2
+  displayName: 'Lock Pushed Image'
+  inputs:
+    azureSubscription: ${{ parameters.acr_AzureConnection }}
+    scriptType: ps
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      az acr repository update --name $(imageRepository) --image $(imageName)`:latest --write-enabled false
+
+- task: Docker@2
+  displayName: 'Save image to TAR'
+  # condition: and(succeeded(), in(variables['Build.SourceBranch'], 'refs/heads/main', 'refs/heads/master', variables['branchfilter']))
+  inputs:
+    command: save
+    repository: $(imageName)
+    containerRegistry: ${{ parameters.mercalisbaselineServiceConnection }}
+    arguments: '--output $(Build.ArtifactStagingDirectory)/$(imageTag).image.tar $(imageRepository)/$(imageName):$(imageTag)'
+    addPipelineData: false
+    addBaseImageData: false
+
+- task: CopyFiles@2
+  # copy image.tar to staging directory
+  displayName: 'Copy image.tar to: $(Build.ArtifactStagingDirectory)'
+  inputs:
+    SourceFolder: $(Build.ArtifactStagingDirectory)
+    Contents: '*.tar'
+    TargetFolder: $(Build.ArtifactStagingDirectory)/image
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish Artifact: image'
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)/image'
+    ArtifactName: image
+
+- task: Bash@3
+  displayName: Docker engine cleanup
+  condition: always()
+  inputs:
+    targetType: inline
+    script: |
+      docker system df
+
+      docker image ls
+      docker volume ls
+      docker container ls
+
+      # Prune build cache that's older than an hour, but still keep up to 2GB.
+      docker buildx prune --all --filter until=1h --keep-storage=2gb --force
+
+      # Prune everything else older than 12 hours.
+      docker system prune --all --filter until=12h --force
+
+      docker system df

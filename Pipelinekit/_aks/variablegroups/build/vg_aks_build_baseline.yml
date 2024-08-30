@@ -1,0 +1,6 @@
+variables:
+  acr.CheckExistingACRTagsPath: $(Build.ArtifactStagingDirectory)/_aks/scripts/CheckBaseImageExistingACRTags_v1.ps1
+  acr.CheckExistingACRTagsArgs: '-ImageRepository $(imageRepository) -ImageName $(imageName) -ImageTag $(imageTag)'
+  imageName: 'aspnet/vanilla-base'
+  imageTag: '6.0'
+  imageRepository: 'mercalisbaseline.azurecr.io'

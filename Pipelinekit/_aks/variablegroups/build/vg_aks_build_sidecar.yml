@@ -1,0 +1,4 @@
+variables:
+  acr.CheckExistingACRTagsPath: $(Build.ArtifactStagingDirectory)/_aks/scripts/CheckBaseImageExistingACRTags_v1.ps1
+  acr.CheckExistingACRTagsArgs: '-ImageRepository $(imageRepository) -ImageName $(imageName) -ImageTag $(imageTag)'
+  imageTarPath: '$(Pipeline.Workspace)/image/$(imageTag).image.tar'

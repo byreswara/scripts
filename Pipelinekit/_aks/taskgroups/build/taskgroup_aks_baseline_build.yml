@@ -1,0 +1,96 @@
+parameters:
+- name: branchfilter
+  type: string
+  default: '$(branchfilter)'
+- name: baseline_containerRegistry
+  type: string
+  default: $(baseline_containerRegistry)
+- name: dockerfilePath
+  type: string
+  default: '$(dockerfilePath)'
+- name: mercalisbaselineServiceConnection
+  type: string
+- name: acr_AzureConnection
+  type: string
+  displayName: ACR Azure Service Connection
+- name: acr_CheckExistingACRTagsPath
+  type: string
+  default: $(acr.CheckExistingACRTagsPath)
+  displayName: Check Existing ACR Tags Path
+- name: acr_CheckExistingACRTagsArgs
+  default: $(acr.CheckExistingACRTagsArgs)
+  displayName: Check Existing ACR Tags Arguments
+- name: imageName
+  type: string
+  default: '$(imageName)'
+- name: imageTag
+  type: string
+  default: '$(imageTag)'
+
+  
+
+steps:
+# Check if image already exists in ACR
+- task: AzureCLI@2
+  displayName: 'Check Existing ACR Tags'
+  inputs:
+    azureSubscription: ${{ parameters.acr_AzureConnection }}
+    scriptType: pscore
+    scriptPath: ${{ parameters.acr_CheckExistingACRTagsPath }}
+    arguments: ${{ parameters.acr_CheckExistingACRTagsArgs }}
+
+- task: Docker@2
+  # Build the image
+  displayName: Build Image
+  inputs:
+    command: build
+    repository: ${{ parameters.imageName }} #make sure to pass baseline image repository as input trialcardacr.io
+    dockerfile: ${{ parameters.dockerfilePath }}
+    containerRegistry: ${{ parameters.mercalisbaselineServiceConnection }}
+    tags: |
+      ${{ parameters.imageTag }}
+
+- task: Docker@2
+  displayName: 'Save image to TAR'
+  # condition: and(succeeded(), in(variables['Build.SourceBranch'], 'refs/heads/main', 'refs/heads/master', variables['branchfilter']))
+  inputs:
+    command: save
+    repository: ${{ parameters.imageName }}
+    containerRegistry: ${{ parameters.mercalisbaselineServiceConnection }}
+    arguments: '--output $(Build.ArtifactStagingDirectory)/${{ parameters.imageTag }}.image.tar ${{ parameters.baseline_containerRegistry }}/${{ parameters.imageName }}:${{ parameters.imageTag }}'
+    addPipelineData: false
+    addBaseImageData: false
+
+- task: CopyFiles@2
+  # copy image.tar to staging directory
+  displayName: 'Copy image.tar to: $(Build.ArtifactStagingDirectory)'
+  inputs:
+    SourceFolder: $(Build.ArtifactStagingDirectory)
+    Contents: '*.tar'
+    TargetFolder: $(Build.ArtifactStagingDirectory)/image
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish Artifact: image'
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)/image'
+    ArtifactName: image
+
+- task: Bash@3
+  displayName: Docker engine cleanup
+  condition: always()
+  inputs:
+    targetType: inline
+    script: |
+      docker system df
+
+      docker image ls
+      docker volume ls
+      docker container ls
+
+      # Prune build cache that's older than an hour, but still keep up to 2GB.
+      docker buildx prune --all --filter until=1h --keep-storage=2gb --force
+
+      # Prune everything else older than 12 hours.
+      docker system prune --all --filter until=12h --force
+
+      docker system df
